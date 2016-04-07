@@ -11,30 +11,19 @@ import com.john.constraints.{NoGood => CNoGood}
 
 class Agent(variable: Variable, constraints: MutableSet[Constraint], problemSize: Int) extends Actor {
   var agents: Array[ActorRef] = null
+  
   val links = MutableSet[ActorRef]() 
+  
+  var currentAssignment = Assignment(variable, variable.domain(0))
+  
   var view:PartialAssignment = PartialAssignment(new Array[Assignment](variable.index+1))
-  view.assignments(variable.index) = variable match {
-    case FiniteVariable(index, domain) => Assignment(variable, domain(0))
-  }
+  view.assignments(variable.index) = currentAssignment
   
   def receive = {
-    case message: Ok => {
-      val variable = message.assignment.variable
-      view.assignments(variable.index) = message.assignment
-      checkAgentView
-    }
-    
-    case message: NoGood => {
-      constraints.add(CNoGood(message.assignements))
-    }
-    
-    case message: NoSolution => {
-      // terminate actor 
-    }
-    
-    case message: Request => {
-      links.add(sender)
-    }
+    case message: Ok => processInfo(message)    
+    case message: NoGood => resolveConflict(message)
+    case message: RequestLink => setLink(sender)
+    case message: NoSolution => stop
     
     case message: Initialize => {
       links.add(message.link)
@@ -46,20 +35,46 @@ class Agent(variable: Variable, constraints: MutableSet[Constraint], problemSize
       throw new Exception("I don't know what happened")
     }
   }
+
   
   def checkAgentView = {
     var index = 0
     while(index < variable.domain.size) {
-      // check consistency
+      v
       index += 1
     }
   }
   
-  def backTrack = {
-    // Create NoGood message
+  def processInfo(message: Ok) = {
+    updateAgentView(message.assignment)
+    checkAgentView
+  }
+  
+  def resolveConflict(message: NoGood) = {
     
-    // if NoGood is empty broadcast NoSolution
+  }
+  
+  def backTrack() = {
     
+  }
+  
+  def chooseValue(): DomainValue = {
+    Unassigned
+  }
+  
+  def updateAgentView(assignment: Assignment) = {
+    
+  }
+  
+  def coherant(nogood: NoGood, agents: Variable): Boolean = {
+    false 
+  }
+  
+  def setLink(ref: ActorRef) = {
+    
+  }
+  
+  def checkAddLink() = {
     
   }
   

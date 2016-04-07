@@ -14,7 +14,7 @@ object Messages {
   
   case class NoSolution()
   
-  case class Request()
+  case class RequestLink()
   
   case class Initialize(link: ActorRef, agents: Array[ActorRef])
   
