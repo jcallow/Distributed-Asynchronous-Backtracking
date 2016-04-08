@@ -1,3 +1,3 @@
 package com.john.variable
 
-case class Assignment(variable: Variable, assignment: DomainValue)
+case class Assignment(variable: Int, assignment: DomainValue)
