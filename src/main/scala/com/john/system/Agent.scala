@@ -5,19 +5,17 @@ import com.john.variable._
 import com.john.constraints.Constraint
 import com.john.messages.Messages._
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
-import com.john.data.PartialAssignment
+import com.john.data.{PartialAssignment, NoGood, ConsistencyCheck, Consistent}
 import com.john.variable.{Assignment, Unassigned}
-import com.john.data.NoGood
 
-class Agent(variable: Variable, constraints: MutableSet[Constraint], higherAgents: Array[ActorRef], problemSize: Int) extends Actor { 
+class Agent(variable: Variable, constraints: Set[Constraint], higherAgents: Array[ActorRef], problemSize: Int) extends Actor { 
   val links = MutableSet[ActorRef]() 
   
   var currentAssignment = variable.domain(0)
   
-  var view = PartialAssignment(new Array[Assignment](variable.index+1))
-  view.assignments(variable.index) = Assignment(variable.index, currentAssignment)
+  var view = new Array[Assignment](variable.index)
   
-  var noGoods = Map[NoGood, DomainValue]()
+  var noGoods = Map[Array[Assignment], MutableSet[Assignment]]()
   
   def receive = {
     case message: Ok => processInfo(message)    
@@ -31,17 +29,32 @@ class Agent(variable: Variable, constraints: MutableSet[Constraint], higherAgent
   }
 
   
-  def checkAgentView: Unit = {
-    if (!(consistent(currentAssignment, view).isEmpty)) {
+  def checkAgentView: Unit = consistent(currentAssignment, view) match {
+    case NoGood(_) => {
       currentAssignment = chooseValue
       if (currentAssignment != Unassigned) {
         links.foreach(link => link ! Ok(Assignment(variable.index, currentAssignment)))
       } else backTrack
     }
+    case Consistent() => return
   }
   
-  def consistent(currentValue: DomainValue, view: PartialAssignment): NoGood = {
-    NoGood(Array[Assignment]())
+  
+  /*
+   * Finish me
+   */
+  def consistent(currentValue: DomainValue, view: Array[Assignment]): ConsistencyCheck = {
+    val set = MutableSet[Int]()
+    for (constraint <- constraints) {
+      if(!constraint.check(view :+ Assignment(variable.index, currentValue))) set ++= constraint.variables
+    }
+    if (set.isEmpty) return Consistent()
+    else {
+      set -= variable.index
+      val left = set.toArray.sorted.map(index => view(index))
+      val right = Assignment(variable.index, currentValue)
+      return NoGood(left, right)
+    }
   }
   
   def processInfo(message: Ok) = {
@@ -50,54 +63,59 @@ class Agent(variable: Variable, constraints: MutableSet[Constraint], higherAgent
   }
   
   def resolveConflict(conflict: NoGood, sender: ActorRef) = {
-    if (coherant(conflict, Set(variable.index) ++ view.assignments.map(x => x.variable) )) {
+    if (coherant(conflict.noGood._1 :+ conflict.noGood._2, Set(variable.index) ++ view.map(x => x.variable) )) {
       checkAddLink(conflict)
-      noGoods = noGoods + (conflict -> currentAssignment)
+      if (noGoods.contains(conflict.noGood._1)) noGoods(conflict.noGood._1) += (conflict.noGood._2)
+      else noGoods = noGoods + (conflict.noGood._1 -> MutableSet(conflict.noGood._2))
       currentAssignment = Unassigned
       checkAgentView
-    } else if (coherant(conflict, Set(variable.index))) sender ! Ok(Assignment(variable.index, currentAssignment)) 
+    } else if (coherant(Array[Assignment](conflict.noGood._2), Set(variable.index))) sender ! Ok(Assignment(variable.index, currentAssignment)) 
   }
   
   def backTrack() = {
     val newNoGood = solve
     
-    if (newNoGood.isEmpty == 0) stop
+    if (newNoGood.isEmpty) stop
     else {
-      val sendTo = newNoGood.assignments(newNoGood.assignments.size-1).variable
+      val sendTo = newNoGood.noGood._2.variable
       higherAgents(sendTo) ! newNoGood
-      updateAgentView(Assignment(sendTo, Unassigned))
+      updateAgentView(newNoGood.noGood._2)
       checkAgentView
     }
   }
   
-  /*
-   * Resolved the nogoods for backtracking.
-   */
   def solve: NoGood = {
-    val set = noGoods.keySet.flatMap(ng => ng.assignments.toSet).toArray
+    val set = noGoods.keySet.flatten.toArray
     val sorted = set.sortWith((a,b) => a.variable < b.variable)
-    NoGood(sorted)
+    NoGood(sorted.slice(0, sorted.size-1), sorted.last)
   }
   
   def chooseValue(): DomainValue = {
-    variable.domain.filter(d => d != Unassigned)
+    val eliminated = noGoods.values.flatten.map(a => a.assignment).toSet
+    
+    variable.domain.filter(d => !eliminated.contains(d))
     .foreach(d => {
       val ng = consistent(d, view)
-      if (ng.isEmpty) return d
-      else noGoods = noGoods + (ng -> d)
+      ng match {
+        case Consistent() => return d
+        case NoGood(noGood) => {
+          if (noGoods.contains(noGood._1)) noGoods(noGood._1).add(noGood._2)
+          else noGoods = noGoods + (noGood._1 -> MutableSet(noGood._2))
+        }
+      }      
     })
     Unassigned
   }
   
   def updateAgentView(assignment: Assignment) = {
-    view.assignments(assignment.variable) = assignment
-    val viewIndices = view.assignments.map(x => x.variable)
+    view(assignment.variable) = assignment
+    val viewIndices = view.map(x => x.variable)
     noGoods = noGoods.filterKeys(x => coherant(x, viewIndices.toSet))
   }
   
-  def coherant(nogood: NoGood, variables: Set[Int]): Boolean = { 
-    for (a <- nogood.assignments) {
-      if (variables.contains(a.variable) && a.assignment != view.assignments(a.variable).assignment) return false
+  def coherant(assignments: Array[Assignment], variables: Set[Int]): Boolean = { 
+    for (a <- assignments) {
+      if (variables.contains(a.variable) && a.assignment != view(a.variable).assignment) return false
     }
     true
   }
@@ -108,12 +126,13 @@ class Agent(variable: Variable, constraints: MutableSet[Constraint], higherAgent
   }
   
   def checkAddLink(noGood: NoGood) = {
-    noGood.assignments.foreach( {case Assignment(index, _) => {
+    noGood.noGood._1.foreach( {case Assignment(index, _) => {
       if (!links.contains(higherAgents(index))) higherAgents(index) ! RequestLink
     }})
   }
   
   def stop = {
+    println("Can't find solution")
     // No solution, send kill signal to master
   }
   
