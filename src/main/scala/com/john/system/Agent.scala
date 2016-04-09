@@ -61,7 +61,7 @@ class Agent(variable: Variable, constraints: MutableSet[Constraint], higherAgent
   def backTrack() = {
     val newNoGood = solve
     
-    if (newNoGood.assignments.size == 0) stop
+    if (newNoGood.isEmpty == 0) stop
     else {
       val sendTo = newNoGood.assignments(newNoGood.assignments.size-1).variable
       higherAgents(sendTo) ! newNoGood
@@ -97,7 +97,7 @@ class Agent(variable: Variable, constraints: MutableSet[Constraint], higherAgent
   
   def coherant(nogood: NoGood, variables: Set[Int]): Boolean = { 
     for (a <- nogood.assignments) {
-      if (variables.contains(a.variable) && a.assignment != view.assignments(a.variable)) return false
+      if (variables.contains(a.variable) && a.assignment != view.assignments(a.variable).assignment) return false
     }
     true
   }
