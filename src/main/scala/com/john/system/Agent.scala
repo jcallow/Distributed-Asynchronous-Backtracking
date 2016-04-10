@@ -9,7 +9,6 @@ import com.john.data.{PartialAssignment, NoGood, ConsistencyCheck, Consistent, I
 import com.john.variable.{Assignment, Unassigned, Unknown}
 
 class Agent(variable: Variable, constraints: Set[Constraint], higherAgents: Array[ActorRef], problemSize: Int) extends Actor { 
-  println(higherAgents.size)
   val left = MutableMap[Int, ActorRef]() // agents we send to
   val right = MutableMap[Int, ActorRef]() // agents who send to us
   

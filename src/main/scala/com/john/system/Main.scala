@@ -13,8 +13,6 @@ object Main {
     
     val network = nQueens.getProblem(1)
     masterRef ! Problem(network)
-    println("ok")
-   // system.terminate()
   }
   
   def main(args: Array[String]) {

@@ -31,10 +31,11 @@ class Master extends Actor {
     }
     
     case message: Solution => {
-      println("Found Solution: " + Solution)
+      println("Found Solution: " + message.assignments.toList)
       
       context.children.foreach(c => c ! Kill)
       context.stop(self)
+      context.system.terminate()
     }
     
     case message: NoSolution => {
@@ -42,6 +43,7 @@ class Master extends Actor {
       
       context.children.foreach(c => c ! Kill)
       context.stop(self)
+      context.system.terminate()
     }
     
     case _ => {
