@@ -1,6 +1,6 @@
 package com.john.variable
 
-import scala.collection.mutable.{ArrayBuffer => Array}
+//import scala.collection.mutable.{ArrayBuffer => Array}
 
 trait Variable {
   val index : Int

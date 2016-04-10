@@ -15,3 +15,5 @@ case class NoGood(noGood: (Array[Assignment], Assignment)) extends ConsistencyCh
 }
 
 case class Consistent() extends ConsistencyCheck
+
+case class Inconsistent() extends ConsistencyCheck

@@ -11,10 +11,9 @@ object Messages {
   
   case class Problem(network: Network) 
   
+  case class Solution(assignments: Array[Assignment])
+  
   case class NoSolution()
   
-  case class RequestLink()
- 
-  case class Initialized()
-  
+  case class RequestLink(index: Int)  
 }
